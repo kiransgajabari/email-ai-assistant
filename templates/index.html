@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email AI Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e2a;
+    --border:#252836; --accent:#4f8ef7; --accent2:#7c5cfc;
+    --accent3:#f75c7e; --text:#e8eaf2; --muted:#6b7280;
+    --success:#22d07a; --r:14px; --rsm:8px;
+  }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:'DM Sans',sans-serif; min-height:100vh;
+    display:flex; justify-content:center; padding:40px 16px 100px;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 60% 40% at 15% 10%, rgba(79,142,247,.09) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 85%, rgba(124,92,252,.07) 0%, transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+  .wrap { width:100%; max-width:680px; position:relative; z-index:1; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+  .logo   { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:42px; height:42px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:11px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; box-shadow:0 0 24px rgba(79,142,247,.35);
+  }
+  .logo-text {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:21px; letter-spacing:-.5px;
+    background:linear-gradient(90deg,#fff 40%,#4f8ef7);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .history-link {
+    font-size:13px; font-weight:500; color:var(--accent); text-decoration:none;
+    padding:6px 16px; border:1px solid rgba(79,142,247,.3); border-radius:20px; transition:all .2s;
+  }
+  .history-link:hover { background:rgba(79,142,247,.1); border-color:var(--accent); }
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:20px; padding:32px; box-shadow:0 8px 48px rgba(0,0,0,.45);
+  }
+  .lbl {
+    font-family:'Syne',sans-serif; font-size:11px; font-weight:700;
+    letter-spacing:1.4px; text-transform:uppercase; color:var(--muted);
+    margin-bottom:12px; margin-top:24px;
+  }
+  .lbl:first-of-type { margin-top:0; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field { display:flex; flex-direction:column; }
+  .field > label { font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:500; }
+  input[type=text], input[type=email], select, textarea {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--rsm); color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:14px;
+    padding:11px 14px; outline:none; width:100%; appearance:none;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  input::placeholder, textarea::placeholder { color:var(--muted); }
+  input:focus, select:focus, textarea:focus {
+    border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,142,247,.12);
+  }
+  select {
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;
+    padding-right:36px; cursor:pointer;
+  }
+  textarea { resize:vertical; min-height:108px; line-height:1.65; }
+  .voice-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .voice-btn {
+    display:flex; align-items:center; gap:7px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:20px;
+    color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500;
+    padding:6px 14px; cursor:pointer; transition:all .2s;
+  }
+  .voice-btn:hover { border-color:var(--accent3); color:var(--accent3); }
+  .voice-btn.rec { border-color:var(--accent3); color:var(--accent3); animation:pulseBorder 1s infinite; }
+  .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+  .voice-btn.rec .dot { animation:blink .8s infinite; }
+  .voice-st { font-size:12px; color:var(--muted); font-style:italic; }
+  @keyframes blink       { 0%,100%{opacity:1} 50%{opacity:.2} }
+  @keyframes pulseBorder { 0%,100%{box-shadow:0 0 0 0 rgba(247,92,126,.3)} 50%{box-shadow:0 0 0 4px rgba(247,92,126,.1)} }
+  .divider { height:1px; background:var(--border); margin:28px 0; }
+  .drop-zone {
+    border:1.5px dashed var(--border); border-radius:var(--r); padding:26px;
+    text-align:center; cursor:pointer; background:var(--surface2);
+    transition:all .2s; position:relative;
+  }
+  .drop-zone:hover, .drop-zone.over { border-color:var(--accent); background:rgba(79,142,247,.05); }
+  .drop-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .dz-icon  { font-size:28px; margin-bottom:8px; }
+  .dz-title { font-family:'Syne',sans-serif; font-weight:600; font-size:14px; margin-bottom:4px; }
+  .dz-sub   { font-size:12px; color:var(--muted); }
+  .badges   { display:flex; gap:8px; justify-content:center; margin-top:14px; flex-wrap:wrap; }
+  .badge    { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; border:1px solid; }
+  .b-img { color:#22d07a; border-color:rgba(34,208,122,.35); background:rgba(34,208,122,.06); }
+  .b-vid { color:#f75c7e; border-color:rgba(247,92,126,.35); background:rgba(247,92,126,.06); }
+  .b-aud { color:#4f8ef7; border-color:rgba(79,142,247,.35); background:rgba(79,142,247,.06); }
+  .b-doc { color:#f7b24f; border-color:rgba(247,178,79,.35); background:rgba(247,178,79,.06); }
+  .chip-list { margin-top:14px; display:flex; flex-wrap:wrap; gap:10px; }
+  .chip {
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:6px 10px 6px 8px;
+    font-size:12px; max-width:220px; animation:slideIn .25s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .thumb {
+    width:32px; height:32px; border-radius:5px; background:var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:15px; flex-shrink:0; overflow:hidden;
+  }
+  .thumb img { width:100%; height:100%; object-fit:cover; }
+  .chip-info { overflow:hidden; }
+  .chip-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chip-size { color:var(--muted); font-size:10px; }
+  .chip-rm {
+    margin-left:auto; flex-shrink:0; background:none; border:none;
+    color:var(--muted); cursor:pointer; font-size:14px; padding:2px 4px;
+    border-radius:4px; transition:color .15s;
+  }
+  .chip-rm:hover { color:var(--accent3); }
+  .actions { display:flex; gap:12px; margin-top:28px; }
+  .btn-gen {
+    flex:1; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none; border-radius:var(--rsm); color:#fff;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:15px;
+    padding:14px 24px; cursor:pointer; transition:all .2s;
+    position:relative; overflow:hidden;
+  }
+  .btn-gen::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.15),transparent); opacity:0; transition:opacity .2s; }
+  .btn-gen:hover  { transform:translateY(-1px); box-shadow:0 6px 24px rgba(79,142,247,.4); }
+  .btn-gen:hover::after { opacity:1; }
+  .btn-gen.loading { pointer-events:none; opacity:.8; }
+  .spinner {
+    display:inline-block; width:14px; height:14px;
+    border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+    border-radius:50%; animation:spin .6s linear infinite;
+    vertical-align:middle; margin-right:8px;
+  }
+  @keyframes spin { to{transform:rotate(360deg);} }
+  .btn-clear {
+    background:var(--surface2); border:1px solid var(--border); border-radius:var(--rsm);
+    color:var(--muted); font-family:'DM Sans',sans-serif; font-size:14px;
+    padding:14px 18px; cursor:pointer; transition:all .2s;
+  }
+  .btn-clear:hover { border-color:var(--accent3); color:var(--accent3); }
+  .result {
+    margin-top:20px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--r); padding:24px; display:none; animation:fadeUp .3s ease;
+  }
+  .result.show { display:block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .res-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .res-title  { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); }
+  .res-btns   { display:flex; gap:8px; }
+  .btn-sm {
+    background:none; border:1px solid var(--border); border-radius:6px;
+    color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12px;
+    padding:5px 12px; cursor:pointer; transition:all .15s;
+  }
+  .btn-sm:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-send {
+    background:linear-gradient(135deg,var(--success),#16a85a); border:none; border-radius:6px;
+    color:#fff; font-family:'Syne',sans-serif; font-weight:600; font-size:12px;
+    padding:5px 16px; cursor:pointer; transition:all .15s;
+  }
+  .btn-send:hover { box-shadow:0 4px 14px rgba(34,208,122,.35); transform:translateY(-1px); }
+  .btn-send.loading { pointer-events:none; opacity:.7; }
+  .res-subject { font-size:13px; font-weight:500; color:var(--muted); margin-bottom:8px; }
+  .res-subject span { color:var(--text); }
+  .res-body {
+    font-size:14px; line-height:1.78; color:var(--text); white-space:pre-wrap;
+    border-top:1px solid var(--border); padding-top:14px; margin-top:6px;
+    outline:none; border-radius:4px; transition:box-shadow .2s;
+  }
+  .res-body[contenteditable=true] { box-shadow:inset 0 0 0 1px var(--accent); padding:10px; }
+  .res-attachments { margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  .att-badge {
+    font-size:11px; background:var(--surface); border:1px solid var(--border);
+    border-radius:6px; padding:3px 10px; color:var(--muted);
+  }
+  .toast {
+    position:fixed; bottom:28px; right:28px;
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:12px 18px; font-size:13px; font-weight:500;
+    display:flex; align-items:center; gap:10px;
+    box-shadow:0 8px 32px rgba(0,0,0,.45);
+    z-index:1000; opacity:0; transform:translateY(12px); transition:all .3s; pointer-events:none;
+  }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.success { border-color:rgba(34,208,122,.4); }
+  .toast.error   { border-color:rgba(247,92,126,.4); }
+  .toast-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .toast.success .toast-dot { background:var(--success); }
+  .toast.error   .toast-dot { background:var(--accent3); }
+  @media(max-width:520px){
+    .card{padding:20px 16px;} .row2{grid-template-columns:1fr;}
+    .header{flex-direction:column;align-items:flex-start;gap:14px;}
+    .actions{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">✉️</div>
+      <div class="logo-text">Email AI Assistant</div>
+    </div>
+    <a href="/history" class="history-link">📋 View History</a>
+  </div>
+
+  <div class="card">
+    <div class="lbl">Recipient</div>
+    <div class="row2">
+      <div class="field">
+        <label>Email Address</label>
+        <input type="email" id="receiverEmail" placeholder="recipient@example.com"/>
+      </div>
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="receiverName" placeholder="John Doe"/>
+      </div>
+    </div>
+
+    <div class="lbl">From</div>
+    <div class="field">
+      <label>Your Name</label>
+      <input type="text" id="senderName" placeholder="Your name"/>
+    </div>
+
+    <div class="lbl">Email Settings</div>
+    <div class="row2">
+      <div class="field">
+        <label>Tone</label>
+        <select id="tone">
+          <option value="professional">Professional</option>
+          <option value="friendly">Friendly</option>
+          <option value="formal">Formal</option>
+          <option value="casual">Casual</option>
+          <option value="persuasive">Persuasive</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="category">
+          <option value="custom">Custom</option>
+          <option value="follow-up">Follow-up</option>
+          <option value="introduction">Introduction</option>
+          <option value="inquiry">Inquiry</option>
+          <option value="complaint">Complaint</option>
+          <option value="thank-you">Thank You</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="lbl">Message Idea</div>
+    <textarea id="messageIdea" placeholder="Describe what you want to say — AI will write the email for you..."></textarea>
+
+    <div class="voice-row">
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+        <span class="dot"></span> Speak your idea
+      </button>
+      <span class="voice-st" id="voiceSt"></span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="lbl">Attachments &nbsp;<span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;font-family:'DM Sans',sans-serif">(images · video · audio · docs)</span></div>
+
+    <div class="drop-zone" id="dropZone"
+         ondragover="onOver(event)" ondragleave="onLeave()" ondrop="onDrop(event)">
+      <input type="file" id="fileInput" multiple
+             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.pptx,.xlsx"
+             onchange="handleFiles(this.files)"/>
+      <div class="dz-icon">📎</div>
+      <div class="dz-title">Drop files here or click to browse</div>
+      <div class="dz-sub">Images, Video, Audio, Documents — up to 50 MB</div>
+      <div class="badges">
+        <span class="badge b-img">🖼 Images</span>
+        <span class="badge b-vid">🎬 Video</span>
+        <span class="badge b-aud">🎵 Audio</span>
+        <span class="badge b-doc">📄 Docs</span>
+      </div>
+    </div>
+
+    <div class="chip-list" id="chipList"></div>
+
+    <div class="actions">
+      <button class="btn-gen" id="genBtn" onclick="generateEmail()">✨ Generate Email</button>
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div class="result" id="resultCard">
+    <div class="res-header">
+      <div class="res-title">✦ Generated Email</div>
+      <div class="res-btns">
+        <button class="btn-sm" onclick="copyEmail()">📋 Copy</button>
+        <button class="btn-sm" onclick="toggleEdit()">✏️ Edit</button>
+        <button class="btn-send" id="sendBtn" onclick="sendEmail()">📤 Send Now</button>
+      </div>
+    </div>
+    <div class="res-subject" id="resSubject"></div>
+    <div class="res-body"    id="resBody" contenteditable="false"></div>
+    <div class="res-attachments" id="resAttachments"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <span class="toast-dot"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+let files=[], genSubject='', genBody='', recognition=null, recording=false;
+
+function toggleVoice(){
+  const btn=document.getElementById('voiceBtn'), st=document.getElementById('voiceSt');
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast('Please use Google Chrome for voice input.','error'); return; }
+  if(recording){ recognition.stop(); return; }
+  navigator.mediaDevices.getUserMedia({audio:true})
+  .then(stream=>{
+    stream.getTracks().forEach(t=>t.stop());
+    recognition=new SR();
+    recognition.lang='en-US';
+    recognition.interimResults=true;
+    recognition.continuous=false;
+    recognition.onstart =()=>{ recording=true; btn.classList.add('rec'); btn.innerHTML='<span class="dot"></span> Listening…'; st.textContent=''; };
+    recognition.onresult=e=>{ let t=''; for(let i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript; document.getElementById('messageIdea').value=t; };
+    recognition.onend   =()=>{ recording=false; btn.classList.remove('rec'); btn.innerHTML='<span class="dot"></span> Speak your idea'; st.textContent='✓ Captured'; setTimeout(()=>st.textContent='',2500); };
+    recognition.onerror =e=>{ recording=false; btn.classList.remove('rec'); btn.innerHTML='<span class="dot"></span> Speak your idea'; toast('Mic error: '+e.error,'error'); };
+    recognition.start();
+  })
+  .catch(()=>{ toast('Microphone access denied. Allow mic in Chrome settings.','error'); });
+}
+
+function onOver(e){ e.preventDefault(); document.getElementById('dropZone').classList.add('over'); }
+function onLeave(){ document.getElementById('dropZone').classList.remove('over'); }
+function onDrop(e){ e.preventDefault(); onLeave(); handleFiles(e.dataTransfer.files); }
+
+function handleFiles(list){
+  Array.from(list).forEach(f=>{
+    if(files.find(x=>x.name===f.name&&x.size===f.size)) return;
+    files.push(f); renderChip(f);
+  });
+}
+
+function icon(f){
+  if(f.type.startsWith('image/')) return'🖼️';
+  if(f.type.startsWith('video/')) return'🎬';
+  if(f.type.startsWith('audio/')) return'🎵';
+  if(f.type==='application/pdf')  return'📄';
+  return'📎';
+}
+function fmtSize(b){ return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function cid(f){ return'c_'+(f.name+f.size).replace(/\W/g,'_'); }
+
+function renderChip(f){
+  const list=document.getElementById('chipList');
+  const chip=document.createElement('div'); chip.className='chip'; chip.id=cid(f);
+  const thumb=f.type.startsWith('image/')?`<div class="thumb"><img src="${URL.createObjectURL(f)}"/></div>`:`<div class="thumb">${icon(f)}</div>`;
+  chip.innerHTML=`${thumb}<div class="chip-info"><div class="chip-name">${f.name}</div><div class="chip-size">${fmtSize(f.size)}</div></div><button class="chip-rm" onclick="removeFile('${f.name}','${f.size}')">✕</button>`;
+  list.appendChild(chip);
+}
+
+function removeFile(name,size){
+  files=files.filter(f=>!(f.name===name&&String(f.size)===size));
+  const el=document.getElementById('c_'+(name+size).replace(/\W/g,'_'));
+  if(el) el.remove();
+}
+
+async function generateEmail(){
+  const re=g('receiverEmail'),rn=g('receiverName'),sn=g('senderName'),
+        mi=g('messageIdea'),to=g('tone'),ca=g('category');
+  if(!re||!mi){ toast('Enter receiver email and message idea.','error'); return; }
+  const btn=document.getElementById('genBtn');
+  btn.classList.add('loading'); btn.innerHTML='<span class="spinner"></span> Generating…';
+  const fd=new FormData();
+  fd.append('receiver_email',re); fd.append('receiver_name',rn);
+  fd.append('sender_name',sn);    fd.append('message_idea',mi);
+  fd.append('tone',to);           fd.append('category',ca);
+  files.forEach(f=>fd.append('attachments',f));
+  try{
+    const res=await fetch('/generate',{method:'POST',body:fd});
+    const d=await res.json();
+    if(d.error){ toast(d.error,'error'); return; }
+    genSubject=d.subject||''; genBody=d.body||'';
+    document.getElementById('resSubject').innerHTML=`<strong>Subject:</strong> <span>${genSubject}</span>`;
+    document.getElementById('resBody').textContent=genBody;
+    const att=document.getElementById('resAttachments'); att.innerHTML='';
+    (d.attachments||[]).forEach(n=>att.innerHTML+=`<span class="att-badge">📎 ${n}</span>`);
+    const card=document.getElementById('resultCard');
+    card.classList.add('show'); card.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }catch{ toast('Could not reach server.','error'); }
+  finally{ btn.classList.remove('loading'); btn.innerHTML='✨ Generate Email'; }
+}
+
+async function sendEmail(){
+  const re=g('receiverEmail'), body=document.getElementById('resBody').textContent;
+  if(!re||!body){ toast('Nothing to send.','error'); return; }
+  const btn=document.getElementById('sendBtn');
+  btn.classList.add('loading'); btn.textContent='Sending…';
+  const fd=new FormData();
+  fd.append('receiver_email',re); fd.append('subject',genSubject); fd.append('body',body);
+  files.forEach(f=>fd.append('attachments',f));
+  try{
+    const res=await fetch('/send',{method:'POST',body:fd});
+    const d=await res.json();
+    if(d.success) toast('Email sent successfully! 🎉','success');
+    else          toast(d.error||'Failed to send.','error');
+  }catch{ toast('Server error.','error'); }
+  finally{ btn.classList.remove('loading'); btn.textContent='📤 Send Now'; }
+}
+
+function copyEmail(){
+  navigator.clipboard.writeText(`Subject: ${genSubject}\n\n`+document.getElementById('resBody').textContent)
+    .then(()=>toast('Copied!','success'));
+}
+function toggleEdit(){
+  const el=document.getElementById('resBody');
+  const on=el.getAttribute('contenteditable')==='true';
+  el.setAttribute('contenteditable',on?'false':'true');
+  if(!on){ el.focus(); toast('Edit mode — click outside to finish.','success'); }
+}
+function clearAll(){
+  ['receiverEmail','receiverName','senderName','messageIdea'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  files=[]; document.getElementById('chipList').innerHTML=''; document.getElementById('fileInput').value='';
+  document.getElementById('resultCard').classList.remove('show');
+  genSubject=''; genBody='';
+}
+function g(id){ const el=document.getElementById(id); return el?el.value.trim():''; }
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+</script>
+</body>
+</html>

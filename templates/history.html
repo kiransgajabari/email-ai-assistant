@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email History</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e2a;
+    --border:#252836; --accent:#4f8ef7; --accent2:#7c5cfc;
+    --accent3:#f75c7e; --text:#e8eaf2; --muted:#6b7280;
+    --success:#22d07a; --r:14px; --rsm:8px;
+  }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:'DM Sans',sans-serif; min-height:100vh;
+    display:flex; justify-content:center; padding:40px 16px 80px;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 60% 40% at 15% 10%, rgba(79,142,247,.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 85%, rgba(124,92,252,.06) 0%, transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+  .wrap { width:100%; max-width:760px; position:relative; z-index:1; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+  .logo   { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:42px; height:42px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:11px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; box-shadow:0 0 24px rgba(79,142,247,.35);
+  }
+  .logo-text {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:21px; letter-spacing:-.5px;
+    background:linear-gradient(90deg,#fff 40%,#4f8ef7);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .back-link {
+    font-size:13px; font-weight:500; color:var(--accent); text-decoration:none;
+    padding:6px 16px; border:1px solid rgba(79,142,247,.3); border-radius:20px; transition:all .2s;
+  }
+  .back-link:hover { background:rgba(79,142,247,.1); border-color:var(--accent); }
+  .page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:26px; letter-spacing:-.5px; margin-bottom:6px; }
+  .page-sub   { font-size:14px; color:var(--muted); margin-bottom:28px; }
+  .count-badge {
+    display:inline-block; background:rgba(79,142,247,.15);
+    border:1px solid rgba(79,142,247,.3); color:var(--accent);
+    border-radius:20px; font-size:12px; font-weight:600;
+    padding:2px 10px; margin-left:8px; vertical-align:middle;
+  }
+  .empty {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); padding:60px; text-align:center;
+    box-shadow:0 8px 48px rgba(0,0,0,.4);
+  }
+  .empty-icon  { font-size:40px; margin-bottom:16px; }
+  .empty-title { font-family:'Syne',sans-serif; font-weight:700; font-size:18px; margin-bottom:8px; }
+  .empty-sub   { font-size:14px; color:var(--muted); }
+  .email-list  { display:flex; flex-direction:column; gap:16px; }
+  .email-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r); padding:24px; box-shadow:0 4px 24px rgba(0,0,0,.3);
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .email-card:hover { border-color:rgba(79,142,247,.3); box-shadow:0 6px 32px rgba(0,0,0,.4); }
+  .card-header  { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+  .card-meta    { flex:1; min-width:0; }
+  .card-subject { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
+  .card-to      { font-size:12px; color:var(--muted); }
+  .card-to span { color:var(--accent); }
+  .card-time    {
+    font-size:11px; color:var(--muted); white-space:nowrap;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; padding:3px 10px; flex-shrink:0;
+  }
+  .card-body {
+    font-size:13px; color:var(--muted); line-height:1.6;
+    background:var(--surface2); border-radius:var(--rsm);
+    padding:14px; margin-bottom:12px;
+    max-height:80px; overflow:hidden; position:relative; white-space:pre-wrap;
+  }
+  .card-body::after {
+    content:''; position:absolute; bottom:0; left:0; right:0;
+    height:30px; background:linear-gradient(transparent,var(--surface2));
+  }
+  .card-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  .att-chips   { display:flex; gap:6px; flex-wrap:wrap; }
+  .att-chip    {
+    font-size:11px; font-weight:500; background:var(--surface2);
+    border:1px solid var(--border); border-radius:6px; padding:2px 8px; color:var(--muted);
+  }
+  .btn-del {
+    background:none; border:1px solid var(--border); border-radius:6px;
+    color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12px;
+    padding:4px 12px; cursor:pointer; transition:all .15s;
+  }
+  .btn-del:hover { border-color:var(--accent3); color:var(--accent3); }
+  .toast {
+    position:fixed; bottom:28px; right:28px;
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:12px 18px; font-size:13px; font-weight:500;
+    display:flex; align-items:center; gap:10px;
+    box-shadow:0 8px 32px rgba(0,0,0,.45);
+    z-index:1000; opacity:0; transform:translateY(12px); transition:all .3s; pointer-events:none;
+  }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.success { border-color:rgba(34,208,122,.4); }
+  .toast.error   { border-color:rgba(247,92,126,.4); }
+  .toast-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .toast.success .toast-dot { background:var(--success); }
+  .toast.error   .toast-dot { background:var(--accent3); }
+  @media(max-width:520px){
+    .card-header{ flex-direction:column; }
+    .card-footer{ flex-direction:column; align-items:flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">✉️</div>
+      <div class="logo-text">Email AI Assistant</div>
+    </div>
+    <a href="/" class="back-link">← Compose</a>
+  </div>
+
+  <div class="page-title">
+    Email History
+    <span class="count-badge">{{ emails|length }}</span>
+  </div>
+  <div class="page-sub">All emails sent through your AI assistant.</div>
+
+  {% if emails %}
+  <div class="email-list">
+    {% for email in emails %}
+    <div class="email-card" id="card-{{ email.id }}">
+      <div class="card-header">
+        <div class="card-meta">
+          <div class="card-subject">{{ email.subject or '(No Subject)' }}</div>
+          <div class="card-to">To: <span>{{ email.receiver }}</span></div>
+        </div>
+        <div class="card-time">{{ email.sent_at }}</div>
+      </div>
+      <div class="card-body">{{ email.body }}</div>
+      <div class="card-footer">
+        <div class="att-chips">
+          {% if email.attachments %}
+            {% for att in email.attachments.split(',') %}
+              {% set att = att.strip() %}
+              {% if att %}<span class="att-chip">📎 {{ att }}</span>{% endif %}
+            {% endfor %}
+          {% else %}
+            <span style="font-size:12px;color:var(--muted)">No attachments</span>
+          {% endif %}
+        </div>
+        <button class="btn-del" onclick="deleteEmail({{ email.id }})">🗑 Delete</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">📭</div>
+    <div class="empty-title">No emails yet</div>
+    <div class="empty-sub">Emails you send will appear here.</div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="toast" id="toast">
+  <span class="toast-dot"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+async function deleteEmail(id){
+  try{
+    const res=await fetch(`/history/delete/${id}`,{method:'POST'});
+    const d=await res.json();
+    if(d.success){ document.getElementById('card-'+id).remove(); toast('Deleted.','success'); }
+    else toast('Could not delete.','error');
+  }catch{ toast('Server error.','error'); }
+}
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
