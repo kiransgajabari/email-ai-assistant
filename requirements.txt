@@ -1,5 +1,4 @@
 flask
 python-dotenv
-google-generativeai
-gunicorn
 sendgrid
+gunicorn
