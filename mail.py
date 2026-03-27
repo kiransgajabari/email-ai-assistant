@@ -16,7 +16,7 @@ import google.generativeai as genai
 
 load_dotenv()
 
-SENDER_EMAIL     = os.getenv("EMAIL_ADDRESS")
+SENDER_EMAIL = os.getenv("EMAIL_ADDRESS")
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY")
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 
