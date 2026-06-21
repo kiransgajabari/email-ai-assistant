@@ -1,24 +1,27 @@
 import os
 import sqlite3
-import base64
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
-import sendgrid
-from sendgrid.helpers.mail import (
-    Mail, Attachment, FileContent, FileName, FileType, Disposition
-)
-
 import google.generativeai as genai
 
 load_dotenv()
 
-SENDER_EMAIL = os.getenv("EMAIL_ADDRESS")
-GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY")
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "kirangajabari@gmail.com")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+print("SMTP_EMAIL =", SMTP_EMAIL)
+print("SMTP_PASSWORD loaded =", bool(SMTP_PASSWORD))
+print("GEMINI_API_KEY loaded =", bool(GEMINI_API_KEY))
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -79,13 +82,13 @@ def build_prompt(receiver_name, sender_name, tone, category, message_idea, num_a
     return f"""You are a professional email writer.
 
 Rules:
-- The very first line must be the email subject only (no "Subject:" prefix)
-- After the subject, leave one blank line, then start the body
-- Start the body with: Dear {receiver_name},
-- Tone: {tone}
-- Category: {category}
-- Keep it clear, concise, and well-structured
-- End with:
+* The very first line must be the email subject only (no "Subject:" prefix)
+* After the subject, leave one blank line, then start the body
+* Start the body with: Dear {receiver_name},
+* Tone: {tone}
+* Category: {category}
+* Keep it clear, concise, and well-structured
+* End with:
   Best regards,
   {sender_name}
 {attachment_note}
@@ -95,28 +98,31 @@ Message Idea:
 """
 
 def send_email_smtp(receiver_email, subject, body, attachment_paths):
-    sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
-    message = Mail(
-        from_email=SENDER_EMAIL,
-        to_emails=receiver_email,
-        subject=subject,
-        plain_text_content=body,
-    )
+    msg = MIMEMultipart()
+    msg["From"] = SMTP_EMAIL
+    msg["To"] = receiver_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
     for path in attachment_paths:
         if not os.path.isfile(path):
             continue
         with open(path, "rb") as fh:
-            encoded = base64.b64encode(fh.read()).decode()
-        attachment = Attachment(
-            FileContent(encoded),
-            FileName(os.path.basename(path)),
-            FileType("application/octet-stream"),
-            Disposition("attachment"),
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(fh.read())
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename={os.path.basename(path)}"
         )
-        message.add_attachment(attachment)
-    response = sg.send(message)
-    if response.status_code not in [200, 202]:
-        raise Exception(f"SendGrid error: {response.status_code}")
+        msg.attach(part)
+
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(SMTP_EMAIL, SMTP_PASSWORD)
+    server.sendmail(SMTP_EMAIL, receiver_email, msg.as_string())
+    server.quit()
+
     return True
 
 @app.route("/")
@@ -168,8 +174,8 @@ def send():
     if not receiver_email:
         return jsonify({"error": "Receiver email is required."}), 400
 
-    if not SENDGRID_API_KEY or not SENDER_EMAIL:
-        return jsonify({"error": "SendGrid credentials missing!"}), 500
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return jsonify({"error": "SMTP credentials missing!"}), 500
 
     fresh_files      = request.files.getlist("attachments")
     attachment_paths = save_attachments(fresh_files) or app.config.get("LAST_ATTACHMENTS", [])
@@ -210,9 +216,12 @@ def delete_email(email_id):
 
 @app.route("/test-email")
 def test_email():
-    if not SENDGRID_API_KEY or not SENDER_EMAIL:
-        return "❌ SENDGRID_API_KEY or EMAIL_ADDRESS missing!"
-    return f"✅ SendGrid ready for {SENDER_EMAIL}!"
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return "❌ SMTP_EMAIL or SMTP_PASSWORD missing!"
+    return f"✅ SMTP ready. Sender: {SMTP_EMAIL}"
 
 if __name__ == "__main__":
+    import webbrowser
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        webbrowser.open("http://127.0.0.1:5000")
     app.run(debug=True)
