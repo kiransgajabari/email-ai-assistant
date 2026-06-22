@@ -1,11 +1,13 @@
 import os
 import sqlite3
-import smtplib
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime
+import base64
 
 from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
@@ -18,10 +20,12 @@ load_dotenv()
 SMTP_EMAIL = os.getenv("SMTP_EMAIL", "kirangajabari@gmail.com")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
 print("SMTP_EMAIL =", SMTP_EMAIL)
 print("SMTP_PASSWORD loaded =", bool(SMTP_PASSWORD))
 print("GEMINI_API_KEY loaded =", bool(GEMINI_API_KEY))
+print("BREVO_API_KEY loaded =", bool(BREVO_API_KEY))
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -97,31 +101,38 @@ Message Idea:
 {message_idea}
 """
 
-def send_email_smtp(receiver_email, subject, body, attachment_paths):
-    msg = MIMEMultipart()
-    msg["From"] = SMTP_EMAIL
-    msg["To"] = receiver_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
+def send_email_brevo(receiver_email, subject, body, attachment_paths):
+    # Configure Brevo API
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = BREVO_API_KEY
 
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+        sib_api_v3_sdk.ApiClient(configuration)
+    )
+
+    # Build attachments list
+    attachments = []
     for path in attachment_paths:
         if not os.path.isfile(path):
             continue
-        with open(path, "rb") as fh:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(fh.read())
-        encoders.encode_base64(part)
-        part.add_header(
-            "Content-Disposition",
-            f"attachment; filename={os.path.basename(path)}"
-        )
-        msg.attach(part)
+        with open(path, "rb") as f:
+            file_content = base64.b64encode(f.read()).decode("utf-8")
+        attachments.append({
+            "content": file_content,
+            "name": os.path.basename(path)
+        })
 
-    server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-    server.login(SMTP_EMAIL, SMTP_PASSWORD)
-    server.sendmail(SMTP_EMAIL, receiver_email, msg.as_string())
-    server.quit()
+    # Build the email
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=[{"email": receiver_email}],
+        sender={"name": "Email AI Assistant", "email": SMTP_EMAIL},
+        subject=subject,
+        text_content=body,
+        attachment=attachments if attachments else None
+    )
 
+    # Send it
+    api_instance.send_transac_email(send_smtp_email)
     return True
 
 @app.route("/")
@@ -173,14 +184,14 @@ def send():
     if not receiver_email:
         return jsonify({"error": "Receiver email is required."}), 400
 
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        return jsonify({"error": "SMTP credentials missing!"}), 500
+    if not BREVO_API_KEY:
+        return jsonify({"error": "Brevo API key missing!"}), 500
 
     fresh_files      = request.files.getlist("attachments")
     attachment_paths = save_attachments(fresh_files) or app.config.get("LAST_ATTACHMENTS", [])
 
     try:
-        send_email_smtp(receiver_email, subject, body, attachment_paths)
+        send_email_brevo(receiver_email, subject, body, attachment_paths)
         att_names = ", ".join(os.path.basename(p) for p in attachment_paths)
         sent_at   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         con = get_db()
@@ -215,9 +226,9 @@ def delete_email(email_id):
 
 @app.route("/test-email")
 def test_email():
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        return "❌ SMTP_EMAIL or SMTP_PASSWORD missing!"
-    return f"✅ SMTP ready. Sender: {SMTP_EMAIL}"
+    if not BREVO_API_KEY:
+        return "❌ BREVO_API_KEY missing!"
+    return f"✅ Brevo ready. Sender: {SMTP_EMAIL}"
 
 if __name__ == "__main__":
     import webbrowser
