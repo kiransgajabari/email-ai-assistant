@@ -117,8 +117,7 @@ def send_email_smtp(receiver_email, subject, body, attachment_paths):
         )
         msg.attach(part)
 
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
+    server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
     server.login(SMTP_EMAIL, SMTP_PASSWORD)
     server.sendmail(SMTP_EMAIL, receiver_email, msg.as_string())
     server.quit()
