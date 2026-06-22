@@ -3,3 +3,4 @@ python-dotenv
 google-generativeai
 werkzeug
 gunicorn
+sib-api-v3-sdk
